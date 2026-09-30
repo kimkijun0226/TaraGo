@@ -1,98 +1,111 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  NaverMapView,
+  type NaverMapViewRef,
+} from "@mj-studio/react-native-naver-map";
+import { SymbolView } from "expo-symbols";
+import { useRef } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useCurrentLocation } from "@/hooks/use-current-location";
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+const DEFAULT_CAMERA = {
+  latitude: 37.5665,
+  longitude: 126.978,
+  zoom: 15,
+};
+
+export default function MapScreen() {
+  const mapRef = useRef<NaverMapViewRef>(null);
+  const initializedRef = useRef(false);
+  const { getCurrentLocation, loading, position } = useCurrentLocation();
+  const insets = useSafeAreaInsets();
+
+  async function moveToMyLocation() {
+    if (!initializedRef.current) return;
+
+    const coordinate = await getCurrentLocation();
+    if (!coordinate) return;
+
+    mapRef.current?.animateCameraTo({
+      ...coordinate,
+      zoom: 16,
+      duration: 500,
+    });
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <View style={styles.container}>
+      <NaverMapView
+        ref={mapRef}
+        style={styles.container}
+        initialCamera={DEFAULT_CAMERA}
+        isShowLocationButton={false}
+        isShowZoomControls={false}
+        locationOverlay={{
+          isVisible: position !== null,
+          position: position ?? DEFAULT_CAMERA,
+        }}
+        onInitialized={() => {
+          // 지도 준비 이후에만 초기 위치로 카메라를 이동할 수 있다.
+          if (initializedRef.current) return;
+          initializedRef.current = true;
+          void moveToMyLocation();
+        }}
+      />
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="현재 위치로 지도 이동"
+        accessibilityState={{ disabled: loading, busy: loading }}
+        disabled={loading}
+        onPress={() => void moveToMyLocation()}
+        style={({ pressed }) => [
+          styles.locationButton,
+          { bottom: insets.bottom + 16 },
+          pressed && styles.pressed,
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator color="#1769E0" />
+        ) : (
+          <SymbolView
+            name={{
+              ios: "location.north.fill",
+              android: "my_location",
+              web: "my_location",
+            }}
+            size={24}
+            tintColor="#1769E0"
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        )}
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+  locationButton: {
+    position: "absolute",
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DADCE0",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  pressed: {
+    opacity: 0.7,
   },
 });
