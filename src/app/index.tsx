@@ -3,7 +3,7 @@ import {
   type NaverMapViewRef,
 } from "@mj-studio/react-native-naver-map";
 import { SymbolView } from "expo-symbols";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -12,18 +12,27 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useCurrentLocation } from "@/hooks/use-current-location";
+import { useNearbyBusStops } from "@/features/bus-stop/model/use-nearby-bus-stops";
+import { BusStopMarker } from "@/features/bus-stop/ui/bus-stop-marker";
+import {
+  type Coordinate,
+  useCurrentLocation,
+} from "@/hooks/use-current-location";
 
 const DEFAULT_CAMERA = {
-  latitude: 37.5665,
-  longitude: 126.978,
-  zoom: 15,
+  latitude: 37.4883019,
+  longitude: 126.8168934,
+  zoom: 17,
 };
+
+const BUS_STOP_MIN_ZOOM = 20;
 
 export default function MapScreen() {
   const mapRef = useRef<NaverMapViewRef>(null);
   const initializedRef = useRef(false);
+  const [mapCenter, setMapCenter] = useState<Coordinate | null>(null);
   const { getCurrentLocation, loading, position } = useCurrentLocation();
+  const { data: busStops = [] } = useNearbyBusStops(mapCenter);
   const insets = useSafeAreaInsets();
 
   async function moveToMyLocation() {
@@ -34,7 +43,7 @@ export default function MapScreen() {
 
     mapRef.current?.animateCameraTo({
       ...coordinate,
-      zoom: 16,
+      zoom: 17,
       duration: 500,
     });
   }
@@ -57,7 +66,30 @@ export default function MapScreen() {
           initializedRef.current = true;
           void moveToMyLocation();
         }}
-      />
+        onCameraIdle={({ latitude, longitude, zoom }) => {
+          if (zoom !== undefined && zoom < BUS_STOP_MIN_ZOOM) {
+            setMapCenter(null);
+            return;
+          }
+
+          // 지나치게 미세한 좌표 차이로 같은 지역을 반복 조회하지 않는다.
+          const nextCenter = {
+            latitude: Number(latitude.toFixed(4)),
+            longitude: Number(longitude.toFixed(4)),
+          };
+
+          setMapCenter((currentCenter) =>
+            currentCenter?.latitude === nextCenter.latitude &&
+            currentCenter.longitude === nextCenter.longitude
+              ? currentCenter
+              : nextCenter,
+          );
+        }}
+      >
+        {busStops.map((busStop) => (
+          <BusStopMarker key={busStop.id} busStop={busStop} />
+        ))}
+      </NaverMapView>
 
       <Pressable
         accessibilityRole="button"
