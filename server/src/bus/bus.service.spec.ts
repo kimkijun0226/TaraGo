@@ -79,4 +79,22 @@ describe('BusService', () => {
     expect(tago.fetchNearby).not.toHaveBeenCalled();
     expect(seoul.fetchNearby).not.toHaveBeenCalled();
   });
+
+  it('TAGO가 빈 목록이면 서울 API를 한 번 보강한다', async () => {
+    const repository = {
+      findNearby: jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]),
+      upsertSource: jest.fn(),
+    } as unknown as StationRepository;
+    const tago = {
+      fetchNearby: jest.fn().mockResolvedValue([]),
+    } as unknown as TagoStationProvider;
+    const seoul = {
+      fetchNearby: jest.fn().mockResolvedValue([]),
+    } as unknown as SeoulStationProvider;
+    const service = new BusService(repository, tago, seoul, new TileCacheService());
+
+    await service.getNearbyStations(37.566535, 126.9779692, 250);
+
+    expect(seoul.fetchNearby).toHaveBeenCalledTimes(1);
+  });
 });

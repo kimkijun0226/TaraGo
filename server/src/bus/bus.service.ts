@@ -38,7 +38,8 @@ export class BusService {
         longitude,
         radius,
       );
-      const seoulStations = tagoStations.some(isSeoulStation)
+      const seoulStations =
+        tagoStations.length === 0 || tagoStations.some(isSeoulStation)
         ? await this.seoul
             .fetchNearby(latitude, longitude, radius)
             .catch(() => [] as StationSourceInput[])
