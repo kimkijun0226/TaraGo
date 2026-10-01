@@ -1,89 +1,82 @@
-import { ConfigService } from '@nestjs/config';
 import { BusService } from './bus.service';
+import { TileCacheService } from './cache/tile-cache.service';
+import type { SeoulStationProvider } from './providers/seoul-station.provider';
+import type { TagoStationProvider } from './providers/tago-station.provider';
+import type { StationRepository } from './stations/station.repository';
 
 describe('BusService', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
+  it('DB가 비었을 때 TAGO를 저장하고 서울 도시코드가 있을 때만 서울 API를 보강한다', async () => {
+    const station = {
+      id: 'station-1',
+      arsId: '12345',
+      name: '정류장',
+      latitude: 37.5,
+      longitude: 127,
+      distanceMeters: 20,
+      type: '0',
+      providers: ['SEOUL', 'TAGO'] as const,
+    };
+    const repository = {
+      findNearby: jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([station]),
+      upsertSource: jest.fn().mockResolvedValue('station-1'),
+    } as unknown as StationRepository;
+    const tago = {
+      fetchNearby: jest.fn().mockResolvedValue([
+        {
+          provider: 'TAGO',
+          providerStationId: 'TAGO-1',
+          providerCityCode: '11',
+          name: '정류장',
+          latitude: 37.5,
+          longitude: 127,
+        },
+      ]),
+    } as unknown as TagoStationProvider;
+    const seoul = {
+      fetchNearby: jest.fn().mockResolvedValue([
+        {
+          provider: 'SEOUL',
+          providerStationId: 'SEOUL-1',
+          name: '정류장',
+          latitude: 37.5,
+          longitude: 127,
+        },
+      ]),
+    } as unknown as SeoulStationProvider;
+    const service = new BusService(repository, tago, seoul, new TileCacheService());
+
+    await expect(service.getNearbyStations(37.5, 127, 250)).resolves.toEqual([
+      station,
+    ]);
+    expect(tago.fetchNearby).toHaveBeenCalledTimes(1);
+    expect(seoul.fetchNearby).toHaveBeenCalledTimes(1);
+    expect(repository.upsertSource).toHaveBeenCalledTimes(2);
   });
 
-  it('미정차 정류장과 요청 반경 밖 정류장을 제외한다', async () => {
-    const configService = {
-      getOrThrow: jest.fn((key: string) => {
-        if (key !== 'PUBLIC_DATA_SERVICE_KEY') {
-          throw new Error(`unexpected config key: ${key}`);
-        }
+  it('같은 타일 재요청은 DB와 외부 API를 다시 호출하지 않는다', async () => {
+    const station = {
+      id: 'station-1',
+      arsId: null,
+      name: '역곡역',
+      latitude: 37.4883,
+      longitude: 126.8169,
+      distanceMeters: 20,
+      type: '0',
+      providers: ['TAGO'] as const,
+    };
+    const repository = {
+      findNearby: jest.fn().mockResolvedValue([station]),
+      upsertSource: jest.fn(),
+    } as unknown as StationRepository;
+    const tago = { fetchNearby: jest.fn() } as unknown as TagoStationProvider;
+    const seoul = { fetchNearby: jest.fn() } as unknown as SeoulStationProvider;
+    const service = new BusService(repository, tago, seoul, new TileCacheService());
 
-        return 'decoded%2Bservice%2Fkey';
-      }),
-    } as unknown as ConfigService;
+    await service.getNearbyStations(37.4883, 126.8169, 250);
+    await service.getNearbyStations(37.4883, 126.8169, 250);
 
-    const service = new BusService(configService);
-
-    jest.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          msgHeader: {
-            headerCd: '0',
-            headerMsg: '정상적으로 처리되었습니다.',
-          },
-          msgBody: {
-            itemList: [
-              {
-                stationId: 'station-1',
-                arsId: '01234',
-                stationNm: '정상 정류장',
-                gpsX: '126.977',
-                gpsY: '37.566',
-                dist: '100',
-                stationTp: '0',
-              },
-              {
-                stationId: 'station-2',
-                arsId: '0',
-                stationNm: '미정차 정류장',
-                gpsX: '126.978',
-                gpsY: '37.567',
-                dist: '200',
-                stationTp: '0',
-              },
-              {
-                stationId: 'station-3',
-                arsId: '05678',
-                stationNm: '반경 밖 정류장',
-                gpsX: '126.979',
-                gpsY: '37.568',
-                dist: '600',
-                stationTp: '0',
-              },
-            ],
-          },
-        }),
-        { status: 200 },
-      ),
-    );
-
-    const result = await service.getNearbyStations(37.566535, 126.9779692, 500);
-
-    const requestedUrl = new URL(
-      (global.fetch as jest.MockedFunction<typeof fetch>).mock.calls[0][0].toString(),
-    );
-
-    expect(result).toEqual([
-      {
-        id: 'station-1',
-        arsId: '01234',
-        name: '정상 정류장',
-        latitude: 37.566,
-        longitude: 126.977,
-        distanceMeters: 100,
-        type: '0',
-      },
-    ]);
-    expect(configService.getOrThrow).toHaveBeenCalledWith(
-      'PUBLIC_DATA_SERVICE_KEY',
-    );
-    expect(requestedUrl.searchParams.get('serviceKey')).toBe(
-      'decoded+service/key',
-    );
+    expect(repository.findNearby).toHaveBeenCalledTimes(1);
+    expect(tago.fetchNearby).not.toHaveBeenCalled();
+    expect(seoul.fetchNearby).not.toHaveBeenCalled();
   });
 });

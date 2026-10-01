@@ -53,7 +53,7 @@ export class TagoStationProvider implements NearbyStationProvider {
 
   constructor(private readonly config: ConfigService) {}
 
-  async fetchNearby(latitude: number, longitude: number) {
+  async fetchNearby(latitude: number, longitude: number, _radius: number) {
     const url = new URL(
       'https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtSttnList',
     );

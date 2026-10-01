@@ -1,86 +1,65 @@
-import { BadGatewayException, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 
-type SeoulBusStation = {
-  arsId: string;
-  dist: string;
-  gpsX: string;
-  gpsY: string;
-  stationId: string;
-  stationNm: string;
-  stationTp: string;
-};
+import { TileCacheService } from './cache/tile-cache.service';
+import type { BusStop, StationSourceInput } from './domain/bus-stop';
+import { SeoulStationProvider } from './providers/seoul-station.provider';
+import { TagoStationProvider } from './providers/tago-station.provider';
+import { StationRepository } from './stations/station.repository';
 
-type SeoulBusResponse = {
-  msgHeader?: {
-    headerCd?: string;
-    headerMsg?: string;
-  };
-  msgBody?: {
-    itemList?: SeoulBusStation | SeoulBusStation[];
-  };
-};
+const STATION_LIMIT = 500;
 
 @Injectable()
 export class BusService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly stations: StationRepository,
+    private readonly tago: TagoStationProvider,
+    private readonly seoul: SeoulStationProvider,
+    private readonly cache: TileCacheService,
+  ) {}
 
-  //   반경 내 서울 버스 정류장 조회
-  async getNearbyStations(latitude: number, longitude: number, radius: number) {
-    const rawServiceKey = this.configService.getOrThrow<string>(
-      'PUBLIC_DATA_SERVICE_KEY',
-    );
+  getNearbyStations(
+    latitude: number,
+    longitude: number,
+    radius: number,
+  ): Promise<BusStop[]> {
+    const cacheKey = `${latitude.toFixed(6)}:${longitude.toFixed(6)}:${radius}`;
 
-    const serviceKey = decodeURIComponent(rawServiceKey);
-
-    const url = new URL(
-      'http://ws.bus.go.kr/api/rest/stationinfo/getStationByPos',
-    );
-
-    url.searchParams.set('serviceKey', serviceKey);
-    url.searchParams.set('tmX', String(longitude));
-    url.searchParams.set('tmY', String(latitude));
-    url.searchParams.set('radius', String(radius));
-    url.searchParams.set('resultType', 'json');
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new BadGatewayException(
-        `서울 버스 API 요청 실패: HTTP ${response.status}`,
+    return this.cache.getOrLoad(cacheKey, async () => {
+      const stored = await this.stations.findNearby(
+        latitude,
+        longitude,
+        radius,
+        STATION_LIMIT,
       );
-    }
+      if (stored.length > 0) return stored;
 
-    // 응답값 내려주기
-    const data = (await response.json()) as SeoulBusResponse;
-
-    if (data.msgHeader?.headerCd !== '0') {
-      throw new BadGatewayException(
-        data.msgHeader?.headerMsg ?? '서울 버스 API 처리 오류',
+      const tagoStations = await this.tago.fetchNearby(
+        latitude,
+        longitude,
+        radius,
       );
-    }
+      const seoulStations = tagoStations.some(isSeoulStation)
+        ? await this.seoul
+            .fetchNearby(latitude, longitude, radius)
+            .catch(() => [] as StationSourceInput[])
+        : [];
 
-    const items = data.msgBody?.itemList;
+      await Promise.all(
+        [...tagoStations, ...seoulStations].map((station) =>
+          this.stations.upsertSource(station),
+        ),
+      );
 
-    if (!items) {
-      return [];
-    }
-
-    const stations = Array.isArray(items) ? items : [items];
-
-    // 시정교차로(미정차) 제외하고 반경 내 정류장만 반환 & 지정된 반경 내 정류장만 필터링
-    return stations
-      .filter(
-        (station) => station.arsId !== '0' && Number(station.dist) <= radius,
-      )
-      .map((station) => ({
-        id: station.stationId,
-        arsId: station.arsId,
-        name: station.stationNm,
-        latitude: Number(station.gpsY),
-        longitude: Number(station.gpsX),
-        distanceMeters: Number(station.dist),
-        type: station.stationTp,
-      }));
+      return this.stations.findNearby(
+        latitude,
+        longitude,
+        radius,
+        STATION_LIMIT,
+      );
+    });
   }
+}
+
+function isSeoulStation(station: StationSourceInput) {
+  return station.providerCityCode === '11';
 }
