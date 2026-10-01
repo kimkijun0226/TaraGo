@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS bus_stations (
   name text NOT NULL,
   normalized_name text NOT NULL,
   ars_id text,
+  station_type text,
   location geography(Point, 4326) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
