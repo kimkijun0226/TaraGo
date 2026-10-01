@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import type {
   BusStop,
+  StationSource,
   StationSourceInput,
   TransitProvider,
 } from '../domain/bus-stop';
@@ -63,6 +64,26 @@ export class StationRepository {
       distanceMeters: Number(row.distance_meters),
       type: row.station_type ?? '0',
       providers: row.providers,
+    }));
+  }
+
+  async findSources(stationId: string): Promise<StationSource[]> {
+    const result = await this.database.query<{
+      provider: TransitProvider;
+      provider_station_id: string;
+      provider_city_code: string | null;
+    }>(
+      `SELECT provider, provider_station_id, provider_city_code
+       FROM station_sources
+       WHERE station_id = $1
+       ORDER BY provider`,
+      [stationId],
+    );
+
+    return result.rows.map((row) => ({
+      provider: row.provider,
+      providerStationId: row.provider_station_id,
+      providerCityCode: row.provider_city_code,
     }));
   }
 

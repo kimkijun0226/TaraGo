@@ -22,3 +22,9 @@ export type StationSourceInput = {
   type?: string;
   rawMetadata?: Record<string, unknown>;
 };
+
+export type StationSource = {
+  provider: TransitProvider;
+  providerStationId: string;
+  providerCityCode: string | null;
+};
