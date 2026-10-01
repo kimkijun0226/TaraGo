@@ -13,11 +13,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useNearbyBusStops } from "@/features/bus-stop/model/use-nearby-bus-stops";
-import { BusStopMarker } from "@/features/bus-stop/ui/bus-stop-marker";
 import {
-  type Coordinate,
-  useCurrentLocation,
-} from "@/hooks/use-current-location";
+  getBusStopTile,
+  type BusStopTile,
+} from "@/features/bus-stop/model/bus-stop-tile";
+import { BusStopMarker } from "@/features/bus-stop/ui/bus-stop-marker";
+import { useCurrentLocation } from "@/hooks/use-current-location";
 
 const DEFAULT_CAMERA = {
   latitude: 37.4883019,
@@ -30,9 +31,9 @@ const BUS_STOP_MIN_ZOOM = 20;
 export default function MapScreen() {
   const mapRef = useRef<NaverMapViewRef>(null);
   const initializedRef = useRef(false);
-  const [mapCenter, setMapCenter] = useState<Coordinate | null>(null);
+  const [busStopTile, setBusStopTile] = useState<BusStopTile | null>(null);
   const { getCurrentLocation, loading, position } = useCurrentLocation();
-  const { data: busStops = [] } = useNearbyBusStops(mapCenter);
+  const { data: busStops = [] } = useNearbyBusStops(busStopTile);
   const insets = useSafeAreaInsets();
 
   async function moveToMyLocation() {
@@ -68,21 +69,17 @@ export default function MapScreen() {
         }}
         onCameraIdle={({ latitude, longitude, zoom }) => {
           if (zoom !== undefined && zoom < BUS_STOP_MIN_ZOOM) {
-            setMapCenter(null);
+            setBusStopTile(null);
             return;
           }
 
-          // 지나치게 미세한 좌표 차이로 같은 지역을 반복 조회하지 않는다.
-          const nextCenter = {
-            latitude: Number(latitude.toFixed(4)),
-            longitude: Number(longitude.toFixed(4)),
-          };
+          const nextTile = getBusStopTile(latitude, longitude);
 
-          setMapCenter((currentCenter) =>
-            currentCenter?.latitude === nextCenter.latitude &&
-            currentCenter.longitude === nextCenter.longitude
-              ? currentCenter
-              : nextCenter,
+          setBusStopTile((currentTile) =>
+            currentTile?.tileX === nextTile.tileX &&
+            currentTile.tileY === nextTile.tileY
+              ? currentTile
+              : nextTile,
           );
         }}
       >
