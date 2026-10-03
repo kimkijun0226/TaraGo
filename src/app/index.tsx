@@ -12,12 +12,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { BusStop } from "@/features/bus-stop/api/get-nearby-bus-stops";
 import { useNearbyBusStops } from "@/features/bus-stop/model/use-nearby-bus-stops";
 import {
-  getBusStopTile,
+  getVisibleBusStopTiles,
   type BusStopTile,
 } from "@/features/bus-stop/model/bus-stop-tile";
 import { BusStopMarker } from "@/features/bus-stop/ui/bus-stop-marker";
+import { BusStopBottomSheet } from "@/features/bus-stop/ui/bus-stop-bottom-sheet";
 import { useCurrentLocation } from "@/hooks/use-current-location";
 
 const DEFAULT_CAMERA = {
@@ -26,15 +28,23 @@ const DEFAULT_CAMERA = {
   zoom: 17,
 };
 
-const BUS_STOP_MIN_ZOOM = 20;
-
 export default function MapScreen() {
   const mapRef = useRef<NaverMapViewRef>(null);
   const initializedRef = useRef(false);
-  const [busStopTile, setBusStopTile] = useState<BusStopTile | null>(null);
+  const lastTileUpdateRef = useRef(0);
+  const [busStopTiles, setBusStopTiles] = useState<BusStopTile[]>([]);
+  const [selectedBusStop, setSelectedBusStop] = useState<BusStop | null>(null);
   const { getCurrentLocation, loading, position } = useCurrentLocation();
-  const { data: busStops = [] } = useNearbyBusStops(busStopTile);
+  const busStops = useNearbyBusStops(busStopTiles);
   const insets = useSafeAreaInsets();
+
+  function updateVisibleTiles(zoom: number | undefined, region: Parameters<typeof getVisibleBusStopTiles>[1]) {
+    const nextTiles = getVisibleBusStopTiles(zoom, region);
+    if (nextTiles.length === 0) setSelectedBusStop(null);
+    setBusStopTiles((currentTiles) =>
+      haveSameTiles(currentTiles, nextTiles) ? currentTiles : nextTiles,
+    );
+  }
 
   async function moveToMyLocation() {
     if (!initializedRef.current) return;
@@ -67,24 +77,19 @@ export default function MapScreen() {
           initializedRef.current = true;
           void moveToMyLocation();
         }}
-        onCameraIdle={({ latitude, longitude, zoom }) => {
-          if (zoom !== undefined && zoom < BUS_STOP_MIN_ZOOM) {
-            setBusStopTile(null);
-            return;
-          }
-
-          const nextTile = getBusStopTile(latitude, longitude);
-
-          setBusStopTile((currentTile) =>
-            currentTile?.tileX === nextTile.tileX &&
-            currentTile.tileY === nextTile.tileY
-              ? currentTile
-              : nextTile,
-          );
+        onCameraChanged={({ zoom, region }) => {
+          if (Date.now() - lastTileUpdateRef.current < 150) return;
+          lastTileUpdateRef.current = Date.now();
+          updateVisibleTiles(zoom, region);
         }}
+        onCameraIdle={({ zoom, region }) => updateVisibleTiles(zoom, region)}
       >
         {busStops.map((busStop) => (
-          <BusStopMarker key={busStop.id} busStop={busStop} />
+          <BusStopMarker
+            key={busStop.id}
+            busStop={busStop}
+            onSelect={setSelectedBusStop}
+          />
         ))}
       </NaverMapView>
 
@@ -96,7 +101,7 @@ export default function MapScreen() {
         onPress={() => void moveToMyLocation()}
         style={({ pressed }) => [
           styles.locationButton,
-          { bottom: insets.bottom + 16 },
+          { bottom: selectedBusStop ? 390 : insets.bottom + 16 },
           pressed && styles.pressed,
         ]}
       >
@@ -114,6 +119,13 @@ export default function MapScreen() {
           />
         )}
       </Pressable>
+
+      {selectedBusStop ? (
+        <BusStopBottomSheet
+          busStop={selectedBusStop}
+          onClose={() => setSelectedBusStop(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -138,3 +150,15 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+function haveSameTiles(currentTiles: BusStopTile[], nextTiles: BusStopTile[]) {
+  return (
+    currentTiles.length === nextTiles.length &&
+    currentTiles.every(
+      (tile, index) =>
+        tile.tileX === nextTiles[index]?.tileX &&
+        tile.tileY === nextTiles[index]?.tileY &&
+        tile.sizeMeters === nextTiles[index]?.sizeMeters,
+    )
+  );
+}

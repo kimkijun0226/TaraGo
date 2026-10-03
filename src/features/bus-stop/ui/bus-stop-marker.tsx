@@ -6,17 +6,19 @@ const BUS_STOP_MARKER_IMAGE = require("../../../../assets/images/bus-stop-marker
 
 type BusStopMarkerProps = {
   busStop: BusStop;
+  onSelect: (busStop: BusStop) => void;
 };
 
-export function BusStopMarker({ busStop }: BusStopMarkerProps) {
+export function BusStopMarker({ busStop, onSelect }: BusStopMarkerProps) {
   return (
     <NaverMapMarkerOverlay
       latitude={busStop.latitude}
       longitude={busStop.longitude}
-      width={22}
-      height={22}
+      width={20}
+      height={20}
       anchor={{ x: 0.5, y: 0.5 }}
       image={BUS_STOP_MARKER_IMAGE}
+      onTap={() => onSelect(busStop)}
     />
   );
 }

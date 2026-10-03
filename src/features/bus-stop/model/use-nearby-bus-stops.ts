@@ -1,26 +1,34 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 
 import { getNearbyBusStops } from '@/features/bus-stop/api/get-nearby-bus-stops';
 import type { BusStopTile } from '@/features/bus-stop/model/bus-stop-tile';
 
-const NEARBY_RADIUS_METERS = 250;
-
-export function useNearbyBusStops(tile: BusStopTile | null) {
-  return useQuery({
-    queryKey: ['bus-stops', 'tile', tile?.tileX, tile?.tileY],
-    queryFn: ({ signal }) => {
-      if (!tile) return [];
-
-      return getNearbyBusStops({
-        latitude: tile.center.latitude,
-        longitude: tile.center.longitude,
-        radius: NEARBY_RADIUS_METERS,
-        signal,
-      });
-    },
-    enabled: tile !== null,
-    placeholderData: keepPreviousData,
-    staleTime: Infinity,
-    gcTime: Infinity,
+export function useNearbyBusStops(tiles: BusStopTile[]) {
+  const queries = useQueries({
+    queries: tiles.map((tile) => ({
+      queryKey: [
+        'bus-stops',
+        'tile',
+        'complete-coverage-v2',
+        tile.sizeMeters,
+        tile.tileX,
+        tile.tileY,
+      ],
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        getNearbyBusStops({
+          latitude: tile.center.latitude,
+          longitude: tile.center.longitude,
+          radius: tile.radiusMeters,
+          signal,
+        }),
+      staleTime: 30 * 60_000,
+      gcTime: 30 * 60_000,
+    })),
   });
+
+  const busStops = new Map(
+    queries.flatMap(({ data = [] }) => data).map((stop) => [stop.id, stop]),
+  );
+
+  return [...busStops.values()];
 }
