@@ -29,6 +29,23 @@ Run lint and typecheck before declaring any task done.
 - Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
 - Docs: https://docs.expo.dev/router/introduction.md
 
+## State Management
+
+- Use **TanStack Query** for all server state, including bus stops, arrivals, routes, subway data, and saved alerts.
+- TanStack Query owns fetching, caching, loading and error states, retries, polling, and cache invalidation.
+- Use **Zustand** only for shared client state, such as the selected stop or route, map UI state, and BottomSheet state.
+- Use local React state for state that belongs to only one component.
+- Never copy TanStack Query response data into Zustand. Keep a single source of truth.
+- After a server mutation, update or invalidate the relevant TanStack Query cache.
+
+## API Client
+
+- Use **Axios** for HTTP requests through one shared client in `src/shared/api/`.
+- Configure the API base URL, timeout, and truly shared request behavior on that client.
+- Keep feature-specific request functions in each feature's `api/` directory and call them from TanStack Query query or mutation functions.
+- Do not call Axios directly from screens or store server responses in the API client.
+- Never put secret API keys in `EXPO_PUBLIC_` variables or the mobile application. External service keys stay on the backend.
+
 ## Building with EAS
 
 Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
