@@ -30,4 +30,19 @@ describe('TileCacheService', () => {
 
     expect(loader).toHaveBeenCalledTimes(4);
   });
+
+  it('빈 목록도 캐시하고 TTL 이후 다시 조회한다', async () => {
+    const cache = new TileCacheService(500, 1);
+    const loader = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(['station']);
+
+    await expect(cache.getOrLoad('tile-1', loader)).resolves.toEqual([]);
+    expect(loader).toHaveBeenCalledTimes(1);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await expect(cache.getOrLoad('tile-1', loader)).resolves.toEqual(['station']);
+
+    expect(loader).toHaveBeenCalledTimes(2);
+  });
 });

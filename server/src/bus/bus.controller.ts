@@ -3,6 +3,7 @@ import {
   Controller,
   DefaultValuePipe,
   Get,
+  Header,
   ParseFloatPipe,
   ParseIntPipe,
   Param,
@@ -25,6 +26,7 @@ export class BusController {
   }
 
   @Get('stations/nearby')
+  @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
   getNearbyStations(
     @Query('latitude', ParseFloatPipe) latitude: number,
     @Query('longitude', ParseFloatPipe) longitude: number,

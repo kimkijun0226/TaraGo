@@ -2,19 +2,30 @@ import { Injectable, Optional } from '@nestjs/common';
 
 @Injectable()
 export class TileCacheService {
-  private readonly entries = new Map<string, Promise<unknown>>();
+  private readonly entries = new Map<
+    string,
+    { value: Promise<unknown>; expiresAt: number }
+  >();
 
-  constructor(@Optional() private readonly maxEntries = 500) {}
+  constructor(
+    @Optional() private readonly maxEntries = 500,
+    @Optional() private readonly ttlMs = 60_000,
+  ) {}
 
   getOrLoad<T>(key: string, loader: () => Promise<T>): Promise<T> {
-    const cached = this.entries.get(key) as Promise<T> | undefined;
-    if (cached) return cached;
+    const cached = this.entries.get(key);
+    if (cached && cached.expiresAt > Date.now())
+      return cached.value as Promise<T>;
 
     const pending = loader().catch((error: unknown) => {
-      this.entries.delete(key);
+      if (this.entries.get(key)?.value === pending) this.entries.delete(key);
       throw error;
     });
-    this.entries.set(key, pending);
+    this.entries.delete(key);
+    this.entries.set(key, {
+      value: pending,
+      expiresAt: Date.now() + this.ttlMs,
+    });
 
     if (this.entries.size > this.maxEntries) {
       const oldestKey = this.entries.keys().next().value as string | undefined;

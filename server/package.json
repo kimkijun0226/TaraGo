@@ -13,6 +13,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "sync:stations": "node dist/sync-stations.js",
     "lint": "oxlint src/ test/",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "jest --watch",

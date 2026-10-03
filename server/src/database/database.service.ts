@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationShutdown, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Pool, type QueryResultRow } from 'pg';
+import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {
@@ -16,6 +16,15 @@ export class DatabaseService implements OnApplicationShutdown {
 
   query<T extends QueryResultRow>(text: string, values?: readonly unknown[]) {
     return this.pool.query<T>(text, values as unknown[] | undefined);
+  }
+
+  async withClient<T>(run: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      return await run(client);
+    } finally {
+      client.release();
+    }
   }
 
   async onApplicationShutdown() {

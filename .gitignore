@@ -33,6 +33,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Imported public-data snapshots are local input files, not application source.
+/server/*.csv
+
 # typescript
 *.tsbuildinfo
 

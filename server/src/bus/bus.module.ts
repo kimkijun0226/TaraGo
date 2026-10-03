@@ -5,6 +5,7 @@ import { StationRepository } from './stations/station.repository';
 import { SeoulStationProvider } from './providers/seoul-station.provider';
 import { TagoStationProvider } from './providers/tago-station.provider';
 import { TileCacheService } from './cache/tile-cache.service';
+import { StationImportService } from './stations/station-import.service';
 import { ArrivalCacheService } from './arrivals/arrival-cache.service';
 import { ArrivalRouterService } from './arrivals/arrival-router.service';
 import { TagoArrivalProvider } from './arrivals/tago-arrival.provider';
@@ -17,6 +18,7 @@ import { TagoArrivalProvider } from './arrivals/tago-arrival.provider';
     SeoulStationProvider,
     TagoStationProvider,
     TileCacheService,
+    StationImportService,
     ArrivalCacheService,
     ArrivalRouterService,
     TagoArrivalProvider,
