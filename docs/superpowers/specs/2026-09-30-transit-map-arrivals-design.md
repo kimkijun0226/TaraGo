@@ -47,9 +47,9 @@ server/src/
 
 환경변수는 `server/.env.local`에서 읽는다.
 
-- `DATA_GO_KR_SERVICE_KEY`: 공공데이터포털 일반 인증키의 Decoding 값
-- `SEOUL_OPEN_DATA_API_KEY`: 서울 열린데이터광장 일반 OpenAPI 인증키
-- `SEOUL_SUBWAY_API_KEY`: 서울 열린데이터광장 실시간 지하철 인증키
+- `SEOUL_BUS_STATION_INFO_SERVICE_KEY`: 공공데이터포털 `서울특별시_정류소정보조회 서비스` 일반 인증키의 Decoding 값
+- `SEOUL_BUS_POSITION_INFO_SERVICE_KEY`: 공공데이터포털 `서울특별시_버스위치정보조회 서비스` 일반 인증키의 Decoding 값
+- `SEOUL_SUBWAY_REALTIME_ARRIVAL_API_KEY`: 서울 열린데이터광장 `서울시 지하철 실시간 도착정보` 전용 인증키
 
 ## 공통 위치 데이터
 
