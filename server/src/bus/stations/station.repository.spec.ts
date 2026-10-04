@@ -39,40 +39,20 @@ describe('StationRepository', () => {
     expect(query.mock.calls[0][0]).not.toContain('LIMIT');
   });
 
-  it('provider ID와 20m 이름 중복을 하나의 원자적 upsert로 연결한다', async () => {
+  it('같은 이름의 5m 이내 중복 정류장은 유효한 정류장 번호를 가진 하나만 반환한다', async () => {
     const query = jest.fn().mockResolvedValue({
-      rows: [{ station_id: 'shared-station' }],
+      rows: [
+        { id: 'old-a', ars_id: '0', name: '역곡1동행정복지센터', latitude: 37.4886, longitude: 126.8168771, distance_meters: 33, station_type: '0', providers: ['TAGO'] },
+        { id: 'real-a', ars_id: '11400', name: '역곡1동행정복지센터', latitude: 37.4886167, longitude: 126.8168667, distance_meters: 35, station_type: '0', providers: ['TAGO'] },
+        { id: 'old-b', ars_id: '0', name: '역곡1동행정복지센터', latitude: 37.4883767, longitude: 126.8162934, distance_meters: 54, station_type: '0', providers: ['TAGO'] },
+        { id: 'real-b', ars_id: '11399', name: '역곡1동행정복지센터', latitude: 37.4884, longitude: 126.8162833, distance_meters: 55, station_type: '0', providers: ['TAGO'] },
+      ],
     });
     const repository = new StationRepository({ query } as unknown as DatabaseService);
 
-    const input = {
-      provider: 'TAGO' as const,
-      providerStationId: 'node-1',
-      providerCityCode: '31050',
-      arsId: '12345',
-      name: ' 역곡역 ',
-      latitude: 37.4883,
-      longitude: 126.8169,
-    };
+    const result = await repository.findNearby(37.4883, 126.8169, 300);
 
-    await expect(repository.upsertSource(input)).resolves.toBe('shared-station');
-    await expect(repository.upsertSource(input)).resolves.toBe('shared-station');
-
-    expect(query).toHaveBeenCalledTimes(4);
-    expect(query.mock.calls[0][0]).toContain('20');
-    expect(query.mock.calls[0][0]).toContain('ON CONFLICT (provider, provider_station_id)');
-    expect(query.mock.calls[0][1]).toEqual([
-      'TAGO',
-      'node-1',
-      '31050',
-      '12345',
-      '역곡역',
-      '역곡역',
-      126.8169,
-      37.4883,
-      {},
-      '',
-    ]);
+    expect(result.map((station) => station.id)).toEqual(['real-a', 'real-b']);
   });
 
   it('잘린 스냅샷은 삭제 전에 전체 트랜잭션을 롤백한다', async () => {

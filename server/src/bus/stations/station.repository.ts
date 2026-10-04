@@ -20,6 +20,7 @@ type NearbyStationRow = {
 };
 
 @Injectable()
+/** 지도 조회와 전국 CSV 스냅샷 적재에 사용하는 정류장 저장소. */
 export class StationRepository {
   constructor(private readonly database: DatabaseService) {}
 
@@ -40,7 +41,7 @@ export class StationRepository {
            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
          ) AS distance_meters,
          station.station_type,
-         array_agg(source.provider ORDER BY source.provider) AS providers
+         array_agg(DISTINCT source.provider ORDER BY source.provider) AS providers
        FROM bus_stations station
        JOIN station_sources source ON source.station_id = station.id
        WHERE ST_DWithin(
@@ -53,7 +54,7 @@ export class StationRepository {
       [longitude, latitude, radius],
     );
 
-    return result.rows.map((row) => ({
+    const stations = result.rows.map((row) => ({
       id: row.id,
       arsId: row.ars_id,
       name: row.name,
@@ -63,6 +64,20 @@ export class StationRepository {
       type: row.station_type ?? '0',
       providers: row.providers,
     }));
+
+    /** 전국 CSV에는 같은 정류장이 '0' 번호와 실제 번호로 2m가량 떨어져 중복될 수 있다. */
+    return stations.filter((station) => {
+      if (station.arsId && station.arsId !== '0') return true;
+      return !stations.some((other) => {
+        if (!other.arsId || other.arsId === '0' || other.name !== station.name) return false;
+        const northMeters = (other.latitude - station.latitude) * 111_320;
+        const eastMeters =
+          (other.longitude - station.longitude) *
+          111_320 *
+          Math.cos((station.latitude * Math.PI) / 180);
+        return northMeters * northMeters + eastMeters * eastMeters < 25;
+      });
+    });
   }
 
   async findSources(stationId: string): Promise<StationSource[]> {
@@ -85,6 +100,7 @@ export class StationRepository {
     }));
   }
 
+  /** 전체 CSV 검증이 끝난 뒤에만 이전 CSV 출처를 제거하도록 트랜잭션으로 교체한다. */
   async importSnapshot(
     stations: AsyncIterable<StationSourceInput>,
     minimumRows: number,
@@ -241,92 +257,4 @@ export class StationRepository {
       longitude = EXCLUDED.longitude`, [JSON.stringify(batch)]);
   }
 
-  async upsertSource(input: StationSourceInput): Promise<string> {
-    const name = input.name.trim().replace(/\s+/g, ' ');
-    const normalizedName = name.toLocaleLowerCase('ko-KR');
-    const result = await this.database.query<{ station_id: string }>(
-      `WITH existing_source AS (
-         SELECT station_id
-         FROM station_sources
-         WHERE provider = $1 AND provider_station_id = $2
-       ), nearby_station AS (
-         SELECT id
-         FROM bus_stations
-         WHERE normalized_name = $6
-           AND ST_DWithin(
-             location,
-             ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography,
-             20
-           )
-         ORDER BY ST_Distance(
-           location,
-           ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography
-         )
-         LIMIT 1
-       ), created_station AS (
-         INSERT INTO bus_stations (
-           name, normalized_name, ars_id, station_type, location
-         )
-         SELECT
-           $5, $6, NULLIF($4, ''), NULLIF($10, ''),
-           ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography
-         WHERE NOT EXISTS (SELECT 1 FROM existing_source)
-           AND NOT EXISTS (SELECT 1 FROM nearby_station)
-         RETURNING id
-       ), selected_station AS (
-         SELECT station_id AS id FROM existing_source
-         UNION ALL
-         SELECT id FROM nearby_station
-         WHERE NOT EXISTS (SELECT 1 FROM existing_source)
-         UNION ALL
-         SELECT id FROM created_station
-         LIMIT 1
-       ), upserted_source AS (
-         INSERT INTO station_sources (
-           station_id, provider, provider_station_id, provider_city_code,
-           provider_ars_id, raw_metadata, updated_at
-         )
-         SELECT id, $1, $2, NULLIF($3, ''), NULLIF($4, ''), $9::jsonb, now()
-         FROM selected_station
-         ON CONFLICT (provider, provider_station_id)
-         DO UPDATE SET
-           station_id = EXCLUDED.station_id,
-           provider_city_code = EXCLUDED.provider_city_code,
-           provider_ars_id = EXCLUDED.provider_ars_id,
-           raw_metadata = EXCLUDED.raw_metadata,
-           updated_at = now()
-         RETURNING station_id
-       )
-       SELECT station_id FROM upserted_source`,
-      [
-        input.provider,
-        input.providerStationId,
-        input.providerCityCode ?? '',
-        input.arsId ?? '',
-        name,
-        normalizedName,
-        input.longitude,
-        input.latitude,
-        input.rawMetadata ?? {},
-        input.type ?? '',
-      ],
-    );
-
-    const stationId = result.rows[0]?.station_id;
-    if (!stationId) throw new Error('정류장 저장 결과가 없습니다.');
-
-    await this.database.query(
-      `UPDATE bus_stations
-       SET name = $2,
-           normalized_name = $3,
-           ars_id = COALESCE(NULLIF($4, ''), ars_id),
-           station_type = COALESCE(NULLIF($5, ''), station_type),
-           location = ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-           updated_at = now()
-       WHERE id = $1`,
-      [stationId, name, normalizedName, input.arsId ?? '', input.type ?? '', input.longitude, input.latitude],
-    );
-
-    return stationId;
-  }
 }
