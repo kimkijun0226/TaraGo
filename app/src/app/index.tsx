@@ -28,6 +28,7 @@ const DEFAULT_CAMERA = {
   zoom: 17,
 };
 
+/** 카메라가 덮는 타일을 갱신하고 선택한 정류장의 도착정보를 연다. */
 export default function MapScreen() {
   const mapRef = useRef<NaverMapViewRef>(null);
   const initializedRef = useRef(false);

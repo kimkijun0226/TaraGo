@@ -53,6 +53,9 @@ Docs: https://docs.expo.dev/eas/index.md
 
 ## Rules
 
+- Add concise `/** ... */` comments to non-obvious modules, public functions, and data-flow boundaries; explain their purpose or reason, not syntax. Do not add comments to trivial code.
+- Before adding a service, parser, hook, or test, check whether the same behavior already exists and whether it is called by the running app.
+- Keep tests for behavior with real regression risk (for example data replacement and map coverage), not generated starter examples or one-line wiring.
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md

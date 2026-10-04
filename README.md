@@ -1,56 +1,12 @@
-# Welcome to your Expo app 👋
+# TaraGo
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+TaraGo는 버스·지하철을 이용하는 사람을 위한 지도 기반 도착 알림 앱입니다. 주변 정류장을 지도에서 찾고 도착 정보를 확인한 뒤, 원하는 노선과 시간대의 알림을 예약하는 경험을 목표로 합니다.
 
-## Get started
+현재는 버스 정류장 지도 표시와 도착 정보 조회를 구현 중입니다. 지하철 도착 정보와 앱이 종료된 뒤에도 동작하는 예약 알림은 이후 단계에서 확장할 예정입니다.
 
-1. Install dependencies
+## 기술 스택
 
-   ```bash
-   npm install
-   ```
+- **앱 (`app/`)**: React Native, TypeScript, Expo Development Build, Expo Router, 네이버 지도 SDK, TanStack Query, Axios
+- **서버 (`server/`)**: NestJS, TypeScript, PostgreSQL/PostGIS, 공공데이터포털 버스 데이터 API
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+지도용 정류장 정보는 서버의 데이터베이스에서 조회하고, 선택한 정류장의 도착 정보는 서버가 공공데이터 API를 통해 제공합니다. 앱과 서버는 한 저장소에서 각각 독립된 프로젝트로 관리합니다.

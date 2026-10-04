@@ -18,8 +18,5 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": [
-    "server",
-    "**/*.test.ts"
-  ]
+  "exclude": ["**/*.test.ts"]
 }

@@ -15,7 +15,6 @@ import {
   groupBusArrivals,
   type BusArrivalGroup,
 } from '@/features/bus-stop/model/bus-arrival';
-import { getBusStopSheetDetails } from '@/features/bus-stop/model/bus-stop-sheet';
 import { useBusArrivals } from '@/features/bus-stop/model/use-bus-arrivals';
 
 type BusStopBottomSheetProps = {
@@ -28,7 +27,6 @@ export function BusStopBottomSheet({
   onClose,
 }: BusStopBottomSheetProps) {
   const insets = useSafeAreaInsets();
-  const details = getBusStopSheetDetails(busStop);
   const {
     data: arrivals = [],
     dataUpdatedAt,
@@ -45,8 +43,10 @@ export function BusStopBottomSheet({
 
       <View style={styles.header}>
         <View style={styles.stationText}>
-          <Text style={styles.title}>{details.title}</Text>
-          <Text style={styles.subtitle}>{details.subtitle}</Text>
+          <Text style={styles.title}>{busStop.name}</Text>
+          <Text style={styles.subtitle}>
+            {busStop.arsId ? `정류장 번호 ${busStop.arsId}` : '정류장 번호 없음'}
+          </Text>
         </View>
 
         <Pressable
