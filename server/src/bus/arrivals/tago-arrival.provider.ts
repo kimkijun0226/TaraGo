@@ -1,7 +1,6 @@
 import { BadGatewayException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { asArray } from '../providers/station-provider';
 import type { BusArrival } from './arrival-provider';
 
 type TagoArrival = {
@@ -56,7 +55,9 @@ export function parseTagoArrivals(data: TagoArrivalResponse): BusArrival[] {
   const items = data.response?.body?.items;
   if (!items || typeof items === 'string') return [];
 
-  return asArray(items.item).flatMap((arrival) => {
+  /** TAGO는 결과가 한 건일 때 객체, 여러 건일 때 배열을 반환한다. */
+  const arrivals = Array.isArray(items.item) ? items.item : items.item ? [items.item] : [];
+  return arrivals.flatMap((arrival) => {
     const etaSeconds = Number(arrival.arrtime);
     const remainingStops = Number(arrival.arrprevstationcnt);
     if (!arrival.routeid || arrival.routeno == null || !Number.isFinite(etaSeconds)) {

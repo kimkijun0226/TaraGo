@@ -38,6 +38,7 @@ export function parseCsvRow(line: string): string[] {
   return cells;
 }
 
+/** 전국 정류소 CSV를 한 줄씩 읽어 DB 적재용 데이터로 변환한다. */
 export async function* readTagoStationCsv(
   path: string,
   encoding = 'utf-8',
