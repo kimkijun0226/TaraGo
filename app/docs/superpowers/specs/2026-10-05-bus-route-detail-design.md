@@ -19,10 +19,10 @@
 
 ## 서버 경계와 계약
 
-정류장 UUID와 선택한 `routeId`로 공급자를 판정한다. 동일 번호의 다른 노선을 혼동하지 않도록 버스 번호만으로 조회하지 않는다. `routeId`가 선택 정류장을 실제 경유하는지도 서버에서 검증한다.
+정류장 UUID와 선택한 `routeId`로 공급자를 판정한다. 같은 노선이 같은 정류장을 두 번 경유하면 도착정보의 정류장 순번(`stationSeq`)까지 선택 식별자에 포함한다. 동일 번호의 다른 노선을 혼동하지 않도록 버스 번호만으로 조회하지 않는다. `routeId`와 순번이 선택 정류장을 실제 경유하는지도 서버에서 검증한다.
 
-- `GET /bus/stations/:stationId/routes/:routeId`: 노선 번호·유형, 방향/회차 정류장, 순서가 있는 정류장 목록, 공식 또는 검증된 외부 형상 좌표와 `geometrySource`/`geometryStatus`를 반환한다. 형상은 정적 데이터로 서버에 캐시한다.
-- `GET /bus/stations/:stationId/routes/:routeId/vehicles`: 차량 ID, 위치 기준(`gps` 또는 `station_segment`), 좌표가 있으면 그 좌표, 없으면 정류장 순번/상태, 공급자 갱신 시각을 반환한다. 같은 노선 동시 요청은 서버에서 합치고 짧게 캐시한다.
+- `GET /bus/stations/:stationId/routes/:routeId?stationSeq=...`: 노선 번호·유형, 방향/회차 정류장, 순서가 있는 정류장 목록, 공식 또는 검증된 외부 형상 좌표와 `geometrySource`/`geometryStatus`를 반환한다. 형상은 정적 데이터로 서버에 캐시한다.
+- `GET /bus/stations/:stationId/routes/:routeId/vehicles?stationSeq=...`: 차량 ID, 위치 기준(`gps` 또는 `station_segment`), 좌표가 있으면 그 좌표, 없으면 정류장 순번/상태, 공급자 갱신 시각을 반환한다. 같은 노선 동시 요청은 서버에서 합치고 짧게 캐시한다.
 - 기존 `GET /bus/stations/:stationId/arrivals`와 동일한 Query 데이터를 상세 화면 ETA에 사용한다. 새로운 ETA 계산기를 만들지 않는다.
 
 응답 필드의 좌표계·시간·숫자 형식은 공급자별로 검증하고 서버에서 정규화한다. 외부 API 키는 서버 밖으로 나가지 않는다. 공식 형상/차량 API 장애 시 오래된 값임을 표시하거나 마지막 유효한 정적 경로를 유지하되, 위치 갱신이 중단된 차량을 현재 위치로 가장하지 않는다.
