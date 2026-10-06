@@ -7,7 +7,12 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 const DURATION = 600;
 
-/** 앱 시작 시 네이티브 스플래시가 사라진 뒤 짧게 보여 주는 오버레이. */
+/**
+ * 네이티브 스플래시가 숨겨진 직후 잠깐 보이는 전환 오버레이.
+ *
+ * 레이아웃이 준비된 다음 스플래시를 숨겨 빈 화면을 피하고,
+ * 종료 애니메이션이 끝나면 오버레이를 트리에서 제거한다.
+ */
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);

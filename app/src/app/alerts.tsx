@@ -1,6 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-/** 예약 알림 저장 기능이 연결되기 전까지 표시하는 알림 탭의 빈 상태. */
+/**
+ * 예약 알림 기능이 서버에 연결되기 전까지 표시하는 빈 상태 화면.
+ *
+ * 이 화면은 아직 저장된 알림을 조회하거나 생성하지 않는다.
+ */
 export default function AlertsScreen() {
   return (
     <View style={styles.container}>
