@@ -19,11 +19,33 @@ type NearbyStationRow = {
   providers: TransitProvider[];
 };
 
+/** 정류장·공급자 관계를 PostGIS에서 조회하고 전국 CSV 스냅샷을 교체한다. */
 @Injectable()
-/** 지도 조회와 전국 CSV 스냅샷 적재에 사용하는 정류장 저장소. */
 export class StationRepository {
   constructor(private readonly database: DatabaseService) {}
 
+  /** 공급자별 원본 ID를 좌표로 대조할 때 정류장 대표 위치를 읽는다. */
+  async findStation(stationId: string): Promise<{ arsId: string | null; latitude: number; longitude: number } | null> {
+    const result = await this.database.query<{ ars_id: string | null; latitude: number; longitude: number }>(
+      `SELECT ars_id, ST_Y(location::geometry) AS latitude, ST_X(location::geometry) AS longitude
+       FROM bus_stations WHERE id = $1`,
+      [stationId],
+    );
+    const row = result.rows[0];
+    return row ? { arsId: row.ars_id, latitude: Number(row.latitude), longitude: Number(row.longitude) } : null;
+  }
+
+  /**
+   * PostGIS에서 반경 내 정류장을 거리순으로 읽고 CSV 중복 마커를 줄인다.
+   *
+   * 같은 이름·5m 이내에 실제 ARS 번호가 있는 정류장이 있으면
+   * `0` 또는 번호 없는 정류장은 표시하지 않는다. 이는 DB 출처를 지우지 않고
+   * 지도 결과만 정리하므로 도착 API에 쓰는 원본 ID는 보존된다.
+   * @param latitude 조회 중심 위도.
+   * @param longitude 조회 중심 경도.
+   * @param radius 조회 반경(미터).
+   * @returns 서버 ID·표시용 ARS 번호·출처 목록을 포함한 거리순 정류장.
+   */
   async findNearby(
     latitude: number,
     longitude: number,
@@ -65,7 +87,7 @@ export class StationRepository {
       providers: row.providers,
     }));
 
-    /** 전국 CSV에는 같은 정류장이 '0' 번호와 실제 번호로 2m가량 떨어져 중복될 수 있다. */
+    /** CSV의 임시 번호와 실제 번호가 서로 다른 행이어도 근접한 동일 정류장으로 본다. */
     return stations.filter((station) => {
       if (station.arsId && station.arsId !== '0') return true;
       return !stations.some((other) => {
@@ -80,6 +102,14 @@ export class StationRepository {
     });
   }
 
+  /**
+   * 한 정류장에 연결된 외부 공급자의 식별자를 조회한다.
+   *
+   * 화면에는 서버 UUID만 노출하고, TAGO 원본 ID와 도시코드는
+   * 도착정보 조회 직전에 서버에서 찾는다.
+   * @param stationId 서버 정류장 UUID.
+   * @returns 정류장에 연결된 공급자별 식별자.
+   */
   async findSources(stationId: string): Promise<StationSource[]> {
     const result = await this.database.query<{
       provider: TransitProvider;
@@ -100,7 +130,19 @@ export class StationRepository {
     }));
   }
 
-  /** 전체 CSV 검증이 끝난 뒤에만 이전 CSV 출처를 제거하도록 트랜잭션으로 교체한다. */
+  /**
+   * 전국 CSV를 임시 테이블에 적재한 뒤 하나의 트랜잭션으로 교체한다.
+   *
+   * 먼저 유효 행 수를 확인해 잘린 파일을 거부한다. 기존 TAGO ID를 우선
+   * 연결하고, 다른 출처의 동일 이름·20m 이내 정류장도 재사용한다.
+   * 새 파일에서 사라진 전국 CSV 출처만 제거하며 다른 출처가 남은
+   * 정류장 본체는 보존한다. 어떤 단계든 실패하면 전체 작업을 롤백한다.
+   * @param stations CSV에서 읽은 유효한 정류장 스트림.
+   * @param minimumRows 전체 교체를 허용할 최소 고유 정류장 행 수.
+   * @param snapshotId 이번 적재에 연결된 출처를 구분할 UUID.
+   * @returns 적재한 고유 행 수와 제거한 이전 CSV 출처 수.
+   * @throws 행 수 부족이나 DB 오류가 발생하면 롤백 후 원래 오류를 전달한다.
+   */
   async importSnapshot(
     stations: AsyncIterable<StationSourceInput>,
     minimumRows: number,
@@ -233,6 +275,11 @@ export class StationRepository {
     });
   }
 
+  /**
+   * CSV 스트림의 최대 1000행을 임시 테이블에 한 번에 반영한다.
+   * @param client 스냅샷 교체 트랜잭션에 사용 중인 DB 연결.
+   * @param batch 정규화한 정류장 행 묶음.
+   */
   private async insertSnapshotBatch(
     client: import('pg').PoolClient,
     batch: Record<string, unknown>[],
