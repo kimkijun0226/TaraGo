@@ -20,11 +20,24 @@ import { useBusArrivals } from '@/features/bus-stop/model/use-bus-arrivals';
 type BusStopBottomSheetProps = {
   busStop: BusStop;
   onClose: () => void;
+  onHeightChange: (height: number) => void;
+  onSelectRoute: (routeId: string, stationSeq: number) => void;
 };
 
+/**
+ * 선택한 정류장의 노선별 도착 정보를 바텀 시트에 표시한다.
+ *
+ * 차량별 서버 응답을 노선으로 묶어 첫 번째·두 번째 차량을 보여 준다.
+ * 최초 로딩, 요청 실패, 도착 정보 없음은 서로 다른 상태로 안내하고
+ * 마지막 갱신 시각과 수동 새로고침도 제공한다.
+ * @param props.busStop 표시할 서버 정류장. ID가 도착 정보 조회 키가 된다.
+ * @param props.onClose 선택을 해제하고 시트를 닫는 콜백.
+ */
 export function BusStopBottomSheet({
   busStop,
   onClose,
+  onHeightChange,
+  onSelectRoute,
 }: BusStopBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const {
@@ -36,16 +49,22 @@ export function BusStopBottomSheet({
     refetch,
   } = useBusArrivals(busStop.id);
   const arrivalGroups = groupBusArrivals(arrivals);
+  const soonBusNumbers = arrivalGroups
+    .filter((group) => group.first.etaSeconds !== null && group.first.etaSeconds <= 60)
+    .map((group) => group.busNumber);
 
   return (
-    <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
+    <View
+      onLayout={({ nativeEvent }) => onHeightChange(nativeEvent.layout.height)}
+      style={[styles.sheet, { bottom: insets.bottom + 8 }]}
+    >
       <View style={styles.handle} />
 
       <View style={styles.header}>
         <View style={styles.stationText}>
           <Text style={styles.title}>{busStop.name}</Text>
           <Text style={styles.subtitle}>
-            {busStop.arsId ? `정류장 번호 ${busStop.arsId}` : '정류장 번호 없음'}
+            {busStop.arsId ?? '정류장 번호 없음'}
           </Text>
         </View>
 
@@ -101,26 +120,43 @@ export function BusStopBottomSheet({
           <Text style={styles.stateText}>현재 도착 예정인 버스가 없습니다.</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.arrivalList}
-          showsVerticalScrollIndicator={false}
-          style={styles.arrivalScroll}
-        >
-          {arrivalGroups.map((group) => (
-            <View key={group.routeId} style={styles.arrivalRow}>
-              <View style={styles.routeHeader}>
-                <Text style={styles.busNumber}>{group.busNumber}</Text>
-                <Text style={styles.routeType}>{group.routeType}</Text>
-              </View>
-              <View style={styles.arrivalTimes}>
-                <ArrivalTime label="첫 번째" arrival={group.first} />
-                {group.second ? (
-                  <ArrivalTime label="두 번째" arrival={group.second} />
-                ) : null}
-              </View>
+        <>
+          {soonBusNumbers.length > 0 ? (
+            <View style={styles.soonRow}>
+              <Text style={styles.soonBadge}>곧 도착</Text>
+              <Text style={styles.soonNumbers}>{soonBusNumbers.join(', ')}</Text>
             </View>
-          ))}
-        </ScrollView>
+          ) : null}
+          <ScrollView
+            contentContainerStyle={styles.arrivalList}
+            showsVerticalScrollIndicator={false}
+            style={styles.arrivalScroll}
+          >
+            {arrivalGroups.map((group) => (
+              <Pressable
+                key={`${group.routeId}:${group.stationSeq ?? ''}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${group.busNumber}번 노선 상세 보기`}
+                disabled={!group.first.stationSeq}
+                onPress={() => onSelectRoute(group.routeId, group.first.stationSeq!)}
+                style={styles.arrivalRow}
+              >
+                <View style={styles.routeHeader}>
+                  <Text style={[styles.routeType, group.routeType.includes('마을') && styles.villageRoute]}>
+                    {group.routeType.includes('마을') ? '마을' : '일반'}
+                  </Text>
+                  <Text style={styles.busNumber}>{group.busNumber}</Text>
+                </View>
+                <View style={styles.arrivalTimes}>
+                  <ArrivalTime arrival={group.first} />
+                  {group.second ? (
+                    <ArrivalTime arrival={group.second} />
+                  ) : null}
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
       )}
     </View>
   );
@@ -129,50 +165,51 @@ export function BusStopBottomSheet({
 const styles = StyleSheet.create({
   sheet: {
     position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-    paddingTop: 10,
-    paddingHorizontal: 20,
+    right: 12,
+    left: 12,
+    maxHeight: '50%',
+    paddingTop: 12,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 28,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 12,
   },
   handle: {
     alignSelf: 'center',
-    width: 40,
+    width: 44,
     height: 4,
-    marginBottom: 18,
+    marginBottom: 12,
     borderRadius: 2,
     backgroundColor: '#AEB4BC',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   stationText: {
     flex: 1,
   },
   title: {
     color: '#15171A',
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: '700',
   },
   subtitle: {
-    marginTop: 6,
+    marginTop: 5,
     color: '#69717C',
     fontSize: 14,
   },
   closeButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     marginLeft: 12,
-    borderRadius: 20,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F1F3F5',
@@ -187,10 +224,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 22,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#DEE2E6',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E9ECEF',
   },
   updatedAt: {
     color: '#8A919B',
@@ -217,72 +254,101 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   arrivalScroll: {
-    maxHeight: 260,
+    flexShrink: 1,
+  },
+  soonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#DEE2E6',
+  },
+  soonBadge: {
+    color: '#E5484D',
+    borderColor: '#E5484D',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontWeight: '600',
+  },
+  soonNumbers: {
+    color: '#15171A',
+    fontSize: 17,
+    fontWeight: '700',
   },
   arrivalList: {
-    paddingVertical: 4,
+    paddingBottom: 4,
   },
   arrivalRow: {
-    paddingVertical: 14,
+    minHeight: 66,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E9ECEF',
   },
   routeHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
+    alignItems: 'center',
+    gap: 7,
+    flex: 1,
   },
   busNumber: {
-    color: '#1769E0',
-    fontSize: 19,
-    fontWeight: '700',
+    color: '#15171A',
+    fontSize: 20,
+    fontWeight: '600',
   },
   routeType: {
-    color: '#8A919B',
+    overflow: 'hidden',
+    color: '#FFFFFF',
+    backgroundColor: '#0096A8',
     fontSize: 12,
+    fontWeight: '700',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+  },
+  villageRoute: {
+    backgroundColor: '#239900',
   },
   arrivalTimes: {
-    flexDirection: 'row',
-    gap: 28,
-    marginTop: 10,
+    alignItems: 'flex-end',
+    flexShrink: 1,
+    gap: 3,
   },
   etaText: {
-    minWidth: 90,
-  },
-  etaLabel: {
-    color: '#8A919B',
-    fontSize: 11,
+    textAlign: 'right',
   },
   eta: {
-    marginTop: 3,
-    color: '#E5484D',
-    fontSize: 17,
-    fontWeight: '700',
+    color: '#F04438',
+    fontSize: 14,
+    fontWeight: '600',
   },
-  remainingStops: {
-    marginTop: 3,
-    color: '#69717C',
-    fontSize: 12,
+  noEta: {
+    color: '#8A919B',
   },
   pressed: {
     opacity: 0.65,
   },
 });
 
+/**
+ * 노선 카드의 첫 번째·두 번째 차량 ETA를 같은 형식으로 표시한다.
+ * @param props.arrival 표시할 차량의 도착 시간과 남은 정류장 수.
+ */
 function ArrivalTime({
-  label,
   arrival,
 }: {
-  label: string;
   arrival: BusArrivalGroup['first'];
 }) {
   return (
-    <View style={styles.etaText}>
-      <Text style={styles.etaLabel}>{label}</Text>
-      <Text style={styles.eta}>{formatEta(arrival.etaSeconds)}</Text>
-      <Text style={styles.remainingStops}>
-        {formatRemainingStops(arrival.remainingStops)}
-      </Text>
-    </View>
+    <Text style={[styles.eta, styles.etaText, arrival.etaSeconds === null && styles.noEta]}>
+      {formatEta(arrival.etaSeconds, arrival.serviceStatus, arrival.etaPrecision, arrival.etaSource)}
+      {arrival.remainingStops !== null ? ` (${formatRemainingStops(arrival.remainingStops)})` : ''}
+    </Text>
   );
 }
