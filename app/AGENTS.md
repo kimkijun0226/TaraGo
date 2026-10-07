@@ -55,6 +55,7 @@ Docs: https://docs.expo.dev/eas/index.md
 
 - Add concise `/** ... */` comments to non-obvious modules, public functions, and data-flow boundaries; explain their purpose or reason, not syntax. Do not add comments to trivial code.
 - Before adding a service, parser, hook, or test, check whether the same behavior already exists and whether it is called by the running app.
+- Naver Map 선택 마커는 iOS에서 React View 스냅샷이나 기존 마커의 `image` 속성 교체만으로 갱신되지 않을 수 있다. 일반·선택 상태에 로컬 이미지 자산을 쓰고 상태 변경 시 네이티브 오버레이를 새 `key`로 다시 마운트한다.
 - Keep tests for behavior with real regression risk (for example data replacement and map coverage), not generated starter examples or one-line wiring.
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.

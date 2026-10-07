@@ -2,18 +2,31 @@ import * as Location from 'expo-location';
 import { useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
+/** 네이버 지도 카메라와 위치 오버레이에 공통으로 사용하는 WGS84 좌표. */
 export type Coordinate = {
   latitude: number;
   longitude: number;
 };
 
+/**
+ * 현재 위치 권한 요청, 조회 상태, 마지막으로 얻은 좌표를 관리한다.
+ *
+ * 첫 화면 자동 조회와 내 위치 버튼 탭이 겹쳐도 위치 요청은 하나만 보낸다.
+ */
 export function useCurrentLocation() {
   const requestingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [position, setPosition] = useState<Coordinate | null>(null);
 
+  /**
+   * foreground 권한과 기기 위치 서비스 상태를 확인한 뒤 현재 좌표를 조회한다.
+   *
+   * High 정확도는 정류장 수준의 지도가 필요하기 때문에 사용한다. 실패 이유는
+   * 콘솔에 남기고 사용자에게는 위치 설정 확인 안내를 보여 준다.
+   * @returns 조회한 WGS84 좌표. 권한 거부·서비스 비활성화·조회 오류·중복 요청이면 `null`.
+   */
   async function getCurrentLocation(): Promise<Coordinate | null> {
-    // 첫 화면 조회와 버튼 탭이 겹쳐도 위치 요청은 한 번만 실행한다.
+    /** 첫 화면 조회와 버튼 탭이 겹쳐도 위치 요청은 한 번만 실행한다. */
     if (requestingRef.current) return null;
 
     requestingRef.current = true;
@@ -37,7 +50,7 @@ export function useCurrentLocation() {
         return null;
       }
 
-      // 정류장 주변 지도를 보여줄 때 필요한 정확도를 요청한다.
+      /** 시뮬레이터의 대략적 위치보다 정류장 수준의 좌표를 우선한다. */
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });

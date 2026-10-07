@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { StationRepository } from './station.repository';
 import { readTagoStationCsv } from './station-import';
 
+/** 설정된 전국 정류장 CSV를 검증하고 저장소의 스냅샷 교체를 시작한다. */
 @Injectable()
 export class StationImportService {
   private readonly logger = new Logger(StationImportService.name);
@@ -14,6 +15,14 @@ export class StationImportService {
     private readonly stations: StationRepository,
   ) {}
 
+  /**
+   * CSV 경로·인코딩·최소 행 수를 읽고 이번 적재의 스냅샷 ID를 만든다.
+   *
+   * 잘못된 최소 행 수나 누락된 파일 경로는 DB 작업 전에 거부한다.
+   * 실제 교체와 이전 데이터 보존 여부는 저장소의 트랜잭션이 보장한다.
+   * @returns 유효하게 적재한 고유 정류장 행 수.
+   * @throws 설정 오류, CSV 읽기 오류, 적재 실패를 호출자에게 전달한다.
+   */
   async importConfiguredSnapshot(): Promise<number> {
     const path = this.config.get<string>('BUS_STATIONS_CSV_PATH');
     if (!path) throw new Error('BUS_STATIONS_CSV_PATH를 설정해 주세요.');

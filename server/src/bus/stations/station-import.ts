@@ -3,7 +3,7 @@ import { createInterface } from 'node:readline';
 
 import type { StationSourceInput } from '../domain/bus-stop';
 
-// 공공데이터포털 TAGO 정류소 CSV의 헤더를 그대로 사용한다.
+/** 공공데이터포털 영문 헤더와 지역별 한글 헤더를 같은 필드로 읽는다. */
 const REQUIRED_COLUMNS = ['NODE_ID', 'NODE_NM', 'GPS_LATI', 'GPS_LONG'];
 const COLUMN_ALIASES: Record<string, string> = {
   정류장번호: 'NODE_ID',
@@ -14,6 +14,13 @@ const COLUMN_ALIASES: Record<string, string> = {
   도시코드: 'CITY_CD',
 };
 
+/**
+ * 따옴표 안의 쉼표와 두 개 연속된 따옴표를 처리해 CSV 행을 분리한다.
+ *
+ * 정류장 이름에 쉼표가 있어도 열 위치가 밀리지 않도록 사용한다.
+ * @param line CSV 원본 한 줄.
+ * @returns 열 순서대로 분리한 셀 값.
+ */
 export function parseCsvRow(line: string): string[] {
   const cells: string[] = [];
   let cell = '';
@@ -38,7 +45,16 @@ export function parseCsvRow(line: string): string[] {
   return cells;
 }
 
-/** 전국 정류소 CSV를 한 줄씩 읽어 DB 적재용 데이터로 변환한다. */
+/**
+ * 전국 정류장 CSV를 스트리밍으로 읽어 TAGO 출처 데이터를 생성한다.
+ *
+ * 헤더 별칭을 정규화하고 좌표·ID·이름이 누락된 행은 건너뛴다.
+ * 전체 파일을 메모리에 올리지 않으므로 대형 연간 스냅샷에도 사용할 수 있다.
+ * @param path 읽을 CSV 파일의 로컬 경로.
+ * @param encoding 파일 문자 인코딩. 기본값 UTF-8이며 CP949 파일은 `euc-kr`.
+ * @yields 유효한 TAGO 정류장 출처 정보.
+ * @throws 필수 헤더가 없거나 파일을 읽지 못하면 오류를 전달한다.
+ */
 export async function* readTagoStationCsv(
   path: string,
   encoding = 'utf-8',
