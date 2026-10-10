@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AlertsModule } from './alerts/alerts.module';
 import { BusModule } from './bus/bus.module';
 import { DatabaseModule } from './database/database.module';
 
@@ -12,6 +13,7 @@ import { DatabaseModule } from './database/database.module';
     }),
     DatabaseModule,
     BusModule,
+    AlertsModule,
   ],
 })
 export class AppModule {}

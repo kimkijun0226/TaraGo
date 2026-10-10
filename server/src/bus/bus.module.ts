@@ -13,6 +13,7 @@ import { BusRouteService } from './routes/bus-route.service';
 /** 정류장 DB와 TAGO·경기도 도착정보 조회에 필요한 의존성을 묶는다. */
 @Module({
   controllers: [BusController],
+  exports: [ArrivalRouterService],
   providers: [
     BusService,
     StationRepository,
