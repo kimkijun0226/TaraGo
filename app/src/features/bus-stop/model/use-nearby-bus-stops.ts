@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 
 import { getNearbyBusStops } from '@/features/bus-stop/api/get-nearby-bus-stops';
+import { combineBusStops } from './combine-bus-stops';
 import type { BusStopTile } from '@/features/bus-stop/model/bus-stop-tile';
 
 /**
@@ -14,8 +16,7 @@ import type { BusStopTile } from '@/features/bus-stop/model/bus-stop-tile';
  * @returns 타일 응답을 합쳐 중복을 제거한 정류장 목록.
  */
 export function useNearbyBusStops(tiles: BusStopTile[]) {
-  const queries = useQueries({
-    queries: tiles.map((tile) => ({
+  const queries = useMemo(() => tiles.map((tile) => ({
       queryKey: [
         'bus-stops',
         'tile',
@@ -33,12 +34,6 @@ export function useNearbyBusStops(tiles: BusStopTile[]) {
         }),
       staleTime: 30 * 60_000,
       gcTime: 30 * 60_000,
-    })),
-  });
-
-  const busStops = new Map(
-    queries.flatMap(({ data = [] }) => data).map((stop) => [stop.id, stop]),
-  );
-
-  return [...busStops.values()];
+    })), [tiles]);
+  return useQueries({ queries, combine: combineBusStops });
 }

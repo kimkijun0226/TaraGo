@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
 /** 네이버 지도 카메라와 위치 오버레이에 공통으로 사용하는 WGS84 좌표. */
@@ -25,7 +25,7 @@ export function useCurrentLocation() {
    * 콘솔에 남기고 사용자에게는 위치 설정 확인 안내를 보여 준다.
    * @returns 조회한 WGS84 좌표. 권한 거부·서비스 비활성화·조회 오류·중복 요청이면 `null`.
    */
-  async function getCurrentLocation(): Promise<Coordinate | null> {
+  const getCurrentLocation = useCallback(async (): Promise<Coordinate | null> => {
     /** 첫 화면 조회와 버튼 탭이 겹쳐도 위치 요청은 한 번만 실행한다. */
     if (requestingRef.current) return null;
 
@@ -72,7 +72,7 @@ export function useCurrentLocation() {
       requestingRef.current = false;
       setLoading(false);
     }
-  }
+  }, []);
 
   return { getCurrentLocation, loading, position };
 }

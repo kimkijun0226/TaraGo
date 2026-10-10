@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
 const MapTabVisibilityContext = createContext<{
   isMapTabHidden: boolean;
@@ -9,8 +9,10 @@ const MapTabVisibilityContext = createContext<{
 export function MapTabVisibilityProvider({ children }: { children: ReactNode }) {
   const [isMapTabHidden, setMapTabHidden] = useState(false);
 
+  const value = useMemo(() => ({ isMapTabHidden, setMapTabHidden }), [isMapTabHidden]);
+
   return (
-    <MapTabVisibilityContext.Provider value={{ isMapTabHidden, setMapTabHidden }}>
+    <MapTabVisibilityContext.Provider value={value}>
       {children}
     </MapTabVisibilityContext.Provider>
   );

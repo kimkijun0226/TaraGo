@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { getBusRouteDetail } from '../api/get-bus-route-detail';
 
@@ -8,6 +8,7 @@ export function useBusRouteDetail(stationId: string, routeId: string, stationSeq
     queryKey: ['bus-route', stationId, routeId, stationSeq],
     queryFn: ({ signal }) => getBusRouteDetail(stationId, routeId, stationSeq, signal),
     enabled,
+    placeholderData: keepPreviousData,
     refetchInterval: 10_000,
     refetchIntervalInBackground: false,
   });

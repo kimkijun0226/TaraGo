@@ -1,3 +1,7 @@
+import { memo, useMemo } from "react";
+import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import { useMapTabVisibility } from '@/components/map-tab-visibility';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,6 +21,8 @@ import {
 } from '@/features/bus-stop/model/bus-arrival';
 import { useBusArrivals } from '@/features/bus-stop/model/use-bus-arrivals';
 
+const EMPTY_ARRIVALS: import('../api/get-bus-arrivals').BusArrival[] = [];
+
 type BusStopBottomSheetProps = {
   busStop: BusStop;
   onClose: () => void;
@@ -33,25 +39,26 @@ type BusStopBottomSheetProps = {
  * @param props.busStop 표시할 서버 정류장. ID가 도착 정보 조회 키가 된다.
  * @param props.onClose 선택을 해제하고 시트를 닫는 콜백.
  */
-export function BusStopBottomSheet({
+export const BusStopBottomSheet = memo(function BusStopBottomSheet({
   busStop,
   onClose,
   onHeightChange,
   onSelectRoute,
 }: BusStopBottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const { setMapTabHidden } = useMapTabVisibility();
   const {
-    data: arrivals = [],
+    data: arrivals = EMPTY_ARRIVALS,
     dataUpdatedAt,
     isError,
     isFetching,
     isPending,
     refetch,
   } = useBusArrivals(busStop.id);
-  const arrivalGroups = groupBusArrivals(arrivals);
-  const soonBusNumbers = arrivalGroups
+  const arrivalGroups = useMemo(() => groupBusArrivals(arrivals), [arrivals]);
+  const soonBusNumbers = useMemo(() => arrivalGroups
     .filter((group) => group.first.etaSeconds !== null && group.first.etaSeconds <= 60)
-    .map((group) => group.busNumber);
+    .map((group) => group.busNumber), [arrivalGroups]);
 
   return (
     <View
@@ -133,13 +140,13 @@ export function BusStopBottomSheet({
             style={styles.arrivalScroll}
           >
             {arrivalGroups.map((group) => (
+              <View key={`${group.routeId}:${group.stationSeq ?? ''}`} style={styles.arrivalRow}>
               <Pressable
-                key={`${group.routeId}:${group.stationSeq ?? ''}`}
                 accessibilityRole="button"
                 accessibilityLabel={`${group.busNumber}번 노선 상세 보기`}
                 disabled={!group.first.stationSeq}
                 onPress={() => onSelectRoute(group.routeId, group.first.stationSeq!)}
-                style={styles.arrivalRow}
+                style={styles.routeButton}
               >
                 <View style={styles.routeHeader}>
                   <Text style={[styles.routeType, group.routeType.includes('마을') && styles.villageRoute]}>
@@ -154,20 +161,38 @@ export function BusStopBottomSheet({
                   ) : null}
                 </View>
               </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${group.busNumber}번 버스 알림 설정`}
+                hitSlop={4}
+                style={({pressed}) => [styles.alertButton,pressed && styles.pressed]}
+                onPress={() => {
+                  setMapTabHidden(false);
+                  router.navigate({pathname:'/alerts',params:{
+                    stationId:busStop.id,stationName:busStop.name,
+                    latitude:String(busStop.latitude),longitude:String(busStop.longitude),
+                    routeId:group.routeId,busNumber:group.busNumber,
+                    ...(group.stationSeq === undefined ? {} : {stationSeq:String(group.stationSeq)}),
+                    requestId:String(Date.now()),alertId:'',
+                  }});
+                }}>
+                <SymbolView name={{ios:'bell',android:'notifications',web:'notifications'}} size={21} tintColor="#1769E0" />
+              </Pressable>
+              </View>
             ))}
           </ScrollView>
         </>
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   sheet: {
     position: 'absolute',
     right: 12,
     left: 12,
-    maxHeight: '50%',
+    height: '47%',
     paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: '#FFFFFF',
@@ -291,6 +316,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E9ECEF',
   },
+  routeButton: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  alertButton: { width: 44, height: 44, marginLeft: 10, borderRadius: 22, backgroundColor: '#EEF4FF', alignItems: 'center', justifyContent: 'center' },
   routeHeader: {
     flexDirection: 'row',
     alignItems: 'center',

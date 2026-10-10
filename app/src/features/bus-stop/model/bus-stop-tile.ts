@@ -1,4 +1,4 @@
-import type { Coordinate } from '@/hooks/use-current-location';
+import type { Coordinate } from "@/hooks/use-current-location";
 
 const EARTH_RADIUS_METERS = 6_378_137;
 const BUS_STOP_MIN_ZOOM = 15;
@@ -39,16 +39,10 @@ export function getBusStopTile(
   const latitudeRadians = (latitude * Math.PI) / 180;
   const mercatorX = EARTH_RADIUS_METERS * longitudeRadians;
   const mercatorY =
-    EARTH_RADIUS_METERS *
-    Math.log(Math.tan(Math.PI / 4 + latitudeRadians / 2));
+    EARTH_RADIUS_METERS * Math.log(Math.tan(Math.PI / 4 + latitudeRadians / 2));
   const tileX = Math.floor(mercatorX / sizeMeters);
   const tileY = Math.floor(mercatorY / sizeMeters);
-  return getBusStopTileFromIndex(
-    tileX,
-    tileY,
-    sizeMeters,
-    radiusMeters,
-  );
+  return getBusStopTileFromIndex(tileX, tileY, sizeMeters, radiusMeters);
 }
 
 /**
@@ -82,12 +76,7 @@ export function getBusStopTilesForRegion(
   for (let tileX = southWest.tileX; tileX <= northEast.tileX; tileX += 1) {
     for (let tileY = southWest.tileY; tileY <= northEast.tileY; tileY += 1) {
       tiles.push(
-        getBusStopTileFromIndex(
-          tileX,
-          tileY,
-          sizeMeters,
-          radiusMeters,
-        ),
+        getBusStopTileFromIndex(tileX, tileY, sizeMeters, radiusMeters),
       );
     }
   }
@@ -112,7 +101,12 @@ export function getVisibleBusStopTiles(
   const sizeMeters = zoom < 16 ? 1_000 : zoom < 17 ? 500 : 200;
   const radiusMeters = zoom < 16 ? 750 : zoom < 17 ? 400 : 250;
   /** 화면이 타일 경계를 넘자마자 마커가 사라지지 않도록 가장자리도 조회한다. */
-  const southWest = getBusStopTile(region.latitude, region.longitude, sizeMeters, radiusMeters);
+  const southWest = getBusStopTile(
+    region.latitude,
+    region.longitude,
+    sizeMeters,
+    radiusMeters,
+  );
   const northEast = getBusStopTile(
     region.latitude + region.latitudeDelta,
     region.longitude + region.longitudeDelta,
@@ -120,9 +114,19 @@ export function getVisibleBusStopTiles(
     radiusMeters,
   );
   const tiles: BusStopTile[] = [];
-  for (let tileX = southWest.tileX - 1; tileX <= northEast.tileX + 1; tileX += 1) {
-    for (let tileY = southWest.tileY - 1; tileY <= northEast.tileY + 1; tileY += 1) {
-      tiles.push(getBusStopTileFromIndex(tileX, tileY, sizeMeters, radiusMeters));
+  for (
+    let tileX = southWest.tileX - 1;
+    tileX <= northEast.tileX + 1;
+    tileX += 1
+  ) {
+    for (
+      let tileY = southWest.tileY - 1;
+      tileY <= northEast.tileY + 1;
+      tileY += 1
+    ) {
+      tiles.push(
+        getBusStopTileFromIndex(tileX, tileY, sizeMeters, radiusMeters),
+      );
     }
   }
   return tiles;

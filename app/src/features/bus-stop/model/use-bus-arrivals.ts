@@ -14,6 +14,7 @@ export function useBusArrivals(stationId: string) {
   return useQuery({
     queryKey: ['bus-stops', stationId, 'arrivals'],
     queryFn: ({ signal }) => getBusArrivals({ stationId, signal }),
+    enabled: Boolean(stationId),
     refetchInterval: 10_000,
     refetchIntervalInBackground: false,
   });
