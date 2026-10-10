@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { AlertRuntimeProvider } from '@/features/bus-alert/ui/alert-runtime-provider';
 import AppTabs from '@/components/app-tabs';
 import { MapTabVisibilityProvider } from '@/components/map-tab-visibility';
 import { queryClient } from '@/shared/lib/query-client';
@@ -17,7 +18,9 @@ export default function TabLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <AnimatedSplashOverlay />
         <MapTabVisibilityProvider>
-          <AppTabs />
+          <AlertRuntimeProvider>
+            <AppTabs />
+          </AlertRuntimeProvider>
         </MapTabVisibilityProvider>
       </ThemeProvider>
     </QueryClientProvider>
