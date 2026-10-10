@@ -247,3 +247,43 @@ describe('경기도 정류장 노선·도착정보 결합', () => {
     expect(result).toMatchObject([{ busNumber: '52', etaSeconds: null, serviceStatus: 'turnaround_waiting' }]);
   });
 });
+
+describe('경기도 API의 단일 객체 목록', () => {
+  it('정류소 검색 및 도착 목록이 단일 객체여도 정상적으로 조회한다', async () => {
+    const fetcher = jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const path = new URL(String(input)).pathname;
+      const body = path.includes('getBusStationList')
+        ? { busStationList: { stationId: 210000550, mobileNo: ' 11071', x: 126.8139833, y: 37.4875167 } }
+        : path.includes('getBusStationViaRouteList')
+          ? { busRouteList: { routeId: 52, routeName: '52', staOrder: 1 } }
+          : { busArrivalList: { routeId: 52, staOrder: 1, predictTimeSec1: 60, predictTimeSec2: 120, vehId1: 1, vehId2: 2 } };
+      return { ok: true, json: async () => ({ response: { msgHeader: { resultCode: 0 }, msgBody: body } }) } as Response;
+    });
+    try {
+      const config = { getOrThrow: () => 'test-key' } as unknown as ConfigService;
+      const provider = new GyeonggiArrivalProvider(config);
+      const id = await provider.findStationId('11071', 37.4875167, 126.8139833);
+      expect(id).toBe(210000550);
+      const arrivals = await provider.fetchArrivals(id!);
+      expect(arrivals).toHaveLength(2);
+      expect(arrivals.map((item) => item.etaSeconds)).toEqual([60, 120]);
+    } finally { fetcher.mockRestore(); }
+  });
+  it('노선의 정류소·형상·차량 목록 한 건도 배열로 정규화한다', async () => {
+    const fetcher = jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const path = new URL(String(input)).pathname;
+      const body = path.includes('getBusRouteStationList')
+        ? { busRouteStationList: { stationId: 1, stationSeq: 1, x: 126.8, y: 37.5 } }
+        : path.includes('getBusRouteLineList')
+          ? { busRouteLineList: { lineSeq: 1, x: 126.8, y: 37.5 } }
+          : { busLocationList: { vehId: 1, stationSeq: 1 } };
+      return { ok: true, json: async () => ({ response: { msgHeader: { resultCode: 0 }, msgBody: body } }) } as Response;
+    });
+    try {
+      const provider = new GyeonggiArrivalProvider({ getOrThrow: () => 'test-key' } as unknown as ConfigService);
+      expect(await provider.getRouteStops(52)).toHaveLength(1);
+      expect(await provider.getRouteLine(52)).toHaveLength(1);
+      expect(await provider.getRouteVehiclePositions(52)).toHaveLength(1);
+    } finally { fetcher.mockRestore(); }
+  });
+});

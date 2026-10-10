@@ -48,7 +48,7 @@ export class BusRouteService {
       turnStationSeq: stops.find((item) => item.turnYn === 'Y')?.stationSeq ?? null,
       stops: [...stops].sort((a, b) => a.stationSeq - b.stationSeq).map((item) => ({
         stationId: String(item.stationId), stationSeq: item.stationSeq,
-        mobileNo: item.mobileNo == null ? null : String(item.mobileNo),
+        mobileNo: item.mobileNo == null ? null : String(item.mobileNo).trim(),
         name: item.stationName ?? '이름 없는 정류장',
         latitude: Number(item.y), longitude: Number(item.x),
       })),

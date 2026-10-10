@@ -323,7 +323,12 @@ export class GyeonggiArrivalProvider {
     if (data.response?.msgHeader?.resultCode !== 0) {
       throw new BadGatewayException(`경기도 버스 API 오류: ${data.response?.msgHeader?.resultMessage ?? '응답 형식 오류'}`);
     }
-    return data.response.msgBody ?? ({} as T);
+    const body = (data.response.msgBody ?? {}) as Record<string, unknown>;
+    // 공공 API는 결과가 한 건이면 목록 필드에도 단일 객체를 반환한다.
+    for (const key of ['busStationList', 'busRouteList', 'busArrivalList', 'busRouteStationList', 'busRouteLineList', 'busLocationList']) {
+      if (body[key] && typeof body[key] === 'object' && !Array.isArray(body[key])) body[key] = [body[key]];
+    }
+    return body as T;
   }
 }
 
